@@ -1,0 +1,6 @@
+{
+  "python.defaultInterpreterPath": "/Users/sindhuramrutha/miniconda3/envs/video_engine/bin/python",
+  "jupyter.kernels.excludePythonEnvironments": [
+    "/Users/sindhuramrutha/miniconda3/envs/video_engine/bin/python"
+  ]
+}

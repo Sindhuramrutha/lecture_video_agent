@@ -17,6 +17,7 @@ load_dotenv()
 class Settings(BaseModel):
     anthropic_api_key: str
     llm_model: str = "claude-sonnet-5"
+    tts_voice: str = "en_US-lessac-medium"
 
 
 @lru_cache
@@ -29,4 +30,5 @@ def get_settings() -> Settings:
     return Settings(
         anthropic_api_key=api_key,
         llm_model=os.environ.get("LLM_MODEL", "claude-sonnet-5"),
+        tts_voice=os.environ.get("TTS_VOICE", "en_US-lessac-medium"),
     )
