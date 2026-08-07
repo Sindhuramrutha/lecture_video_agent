@@ -1,8 +1,14 @@
 __pycache__/
 *.pyc
 .venv/
+.venv*/
 venv/
 .env
 projects/*/
 !projects/.gitkeep
 .DS_Store
+# Manim's own render cache/output -- generated, not source (matches projects/*/
+# convention above; this is what root-level test renders leave behind).
+media/
+# Never commit a virtualenv (previously happened with .venv-render, including
+# 187MB bundled ffmpeg/ffprobe binaries -- broke the push to GitHub).
