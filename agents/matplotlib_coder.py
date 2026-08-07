@@ -8,7 +8,7 @@ problem.
 
 from typing import Optional
 
-from utils.llm import generate
+from utils.llm import generate, strip_code_fences
 
 SYSTEM_PROMPT = """You are an expert Matplotlib developer writing data-driven animations for \
 STEM educational videos, in the style of 3Blue1Brown: clean, readable, uncluttered.
@@ -42,4 +42,4 @@ def generate_code(
             f"\n\nYour previous attempt had this problem:\n{feedback}\n\n"
             f"Previous code:\n{previous_code}\n\nFix it."
         )
-    return generate(system=SYSTEM_PROMPT, prompt=user_prompt, max_tokens=16384)
+    return strip_code_fences(generate(system=SYSTEM_PROMPT, prompt=user_prompt, max_tokens=8192))

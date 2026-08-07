@@ -1,9 +1,9 @@
 """Compose stage: merges each scene's video with its narration audio,
 length-locked to the audio. Deterministic — no LLM call.
 
-manim/matplotlib scenes use their rendered clip. image_only/audio_only
-scenes get a placeholder title card (no illustration generator exists
-yet) so the pipeline still produces a complete video end to end.
+manim scenes use their rendered clip. image_only/audio_only scenes get
+a placeholder title card (no illustration generator exists yet) so the
+pipeline still produces a complete video end to end.
 """
 
 from pathlib import Path

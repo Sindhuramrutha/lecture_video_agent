@@ -7,9 +7,10 @@ being true.
 
 from pathlib import Path
 
+from docx import Document
 from pypdf import PdfReader
 
-SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf"}
+SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx"}
 
 
 def list_reference_files(directory: Path) -> list[Path]:
@@ -26,6 +27,8 @@ def load_references(paths: list[Path | str]) -> list[str]:
         if path.suffix.lower() == ".pdf":
             reader = PdfReader(str(path))
             text = "\n".join(page.extract_text() or "" for page in reader.pages)
+        elif path.suffix.lower() == ".docx":
+            text = "\n".join(p.text for p in Document(str(path)).paragraphs)
         else:
             text = path.read_text()
         texts.append(text)

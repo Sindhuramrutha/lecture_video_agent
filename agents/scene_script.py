@@ -19,31 +19,57 @@ SYSTEM_PROMPT = """You are an expert video director for STEM educational videos,
 of 3Blue1Brown.
 
 You are given the detailed content for this video, written as textbook prose (sections, \
-subsections, equations, worked examples). Break it into a sequence of short scenes. For each \
-scene, decide:
-- The spoken narration for that scene: adapt the textbook content into natural spoken English \
-— conversational, paced for listening, not read verbatim from the page. Cover the same ideas, \
-equations, and examples the content contains for that part, in the same order, without \
-inventing new facts, claims, or examples beyond what the content supports.
+subsections, equations, worked examples). Break it into a sequence of short scenes.
+
+Fidelity to the source — the single most important rule, above pacing, engagement, or scene \
+count:
+- Every fact, number, equation, example, and claim in the narration must be traceable to the \
+detailed content given to you. Do not invent additional facts, statistics, historical \
+anecdotes, "fun" trivia, or analogies that are not in the source, no matter how plausible or \
+pedagogically appealing they sound.
+- Do not add unscientific claims, folk explanations, or narrative flourishes to make a scene \
+sound more engaging. Accuracy and grounding in the source always outrank color or storytelling.
+- If the source material for a subtopic is thin, write a short scene rather than padding it \
+with invented content to fill time or hit the target duration.
+- Not inventing content is different from compressing it — by default, do not summarize the \
+source down. If the source explains *why* something is true, works through an example, gives \
+an aside, or adds a nuance, narrate all of that in full, in natural spoken words. Adapting to \
+spoken style means changing phrasing and pacing, not shortening or skipping explanation that's \
+already there.
+- The content may state its own target duration or timeline (e.g. a recommended length) — if \
+it does, that is the authoritative target, in addition to any target given separately. Compare \
+it against a full, uncompressed narration of the content:
+  - If the full narration would come in *under* the target, that is fine — do not pad, invent, \
+or slow down to reach it. A shorter-than-target video from thin source material is correct.
+  - If the full narration would run *over* the target, then and only then trim it down to fit \
+— cut redundant restatements, secondary asides, or less-essential elaboration first, keeping \
+every core fact, equation, and example the content builds around. Never invent or embellish to \
+fill time; only ever trim to hit an over-budget timeline, never pad to hit an under-budget one.
+
+For each scene, decide:
+- The spoken narration for that scene: rephrase the textbook content into natural spoken \
+English — conversational, paced for listening, rather than read verbatim off the page — while \
+preserving its full depth. Cover every idea, equation, example, and explanatory detail the \
+content contains for that part, in the same order, at the same level of depth as the source.
 - A concrete description of the animation: what is drawn, what moves, what appears or \
 disappears, in enough detail that a programmer could implement it without seeing the rest of \
 the script.
 - The scene type, based on this rule — pick the cheapest option that still teaches the point, \
 don't build an animation just because you can:
-  - "manim": stylized/constructed visuals — equations, phase portraits, vector fields, \
-geometric constructions, code walkthroughs, or a literal physical system (a spring, a \
-pendulum, a mass, a wave, a circuit) built from scratch.
-  - "matplotlib": the scene's point is real computed data — an actual numeric time series, a \
-histogram, a statistical plot, the literal output of integrating an equation — where showing \
-genuine numbers/data matters more than stylized geometry.
+  - "manim": every animated scene, whether the content is stylized/constructed (equations, \
+phase portraits, vector fields, geometric constructions, code walkthroughs, a literal physical \
+system) or real computed data (a numeric time series, a histogram, a statistical plot, the \
+literal output of integrating an equation) — Manim's own charting mobjects (`Axes`, `BarChart`, \
+plotted `Line`/`Dot` points) cover data visualization just as well as stylized geometry, so \
+there is no separate renderer for "real data" scenes; everything animated is "manim".
   - "image_only": a single static image or icon on screen (a photo, a diagram, an illustrative \
 SVG) teaches the point with no real animation needed.
   - "audio_only": no meaningful visual is needed beyond a plain/branded background — a \
 transition, a rhetorical aside, a moment of pure exposition.
-  Prefer "image_only" or "audio_only" over "manim"/"matplotlib" whenever a full animation \
-wouldn't add teaching value. Default to "manim" when a scene could reasonably be either.
+  Prefer "image_only" or "audio_only" over "manim" whenever a full animation wouldn't add \
+teaching value. Default to "manim" when a scene needs any animation at all.
 
-Critical rule for "manim"/"matplotlib" scenes — depict concretely, not just abstractly:
+Critical rule for "manim" scenes — depict concretely, not just abstractly:
 - If the content is building intuition for a concept that has a physical embodiment (a \
 harmonic oscillator as a mass on a spring or a swinging pendulum, a wave as a moving string, \
 etc.), the animation must show that literal physical object in motion, not just its abstract \
@@ -68,7 +94,10 @@ Respond with ONLY a JSON array, no markdown fences, no commentary, in this exact
 def _base_prompt(state: VideoState) -> str:
     return (
         f"Topic: {state.topic}\n"
-        f"Audience: {state.audience}\n\n"
+        f"Audience: {state.audience}\n"
+        f"Target total duration: approximately {state.duration_minutes} minutes across all "
+        f"scenes combined — use this to guide how many scenes you produce and how much each "
+        f"covers, not as a per-scene figure.\n\n"
         f"Detailed content:\n{state.detailed_script}\n"
     )
 
@@ -96,7 +125,7 @@ def _generate_scenes(system: str, prompt: str) -> list[Scene]:
     # call is far more reliable than trying to string-patch malformed JSON.
     last_error = None
     for _ in range(MAX_JSON_ATTEMPTS):
-        raw = generate(system=system, prompt=prompt, max_tokens=16384)
+        raw = generate(system=system, prompt=prompt, max_tokens=8192)
         try:
             return _parse_scenes(raw)
         except (json.JSONDecodeError, KeyError) as exc:

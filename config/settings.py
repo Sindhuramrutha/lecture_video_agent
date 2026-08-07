@@ -15,20 +15,29 @@ load_dotenv()
 
 
 class Settings(BaseModel):
-    anthropic_api_key: str
-    llm_model: str = "claude-sonnet-5"
-    tts_voice: str = "en_US-lessac-medium"
+    llm_base_url: str = "http://localhost:8800/v1"
+    llm_api_key: str = "not-needed"
+    llm_model: str = "qwen2.5-72b-instruct-awq"
+    tts_voice: str = "af_heart"
+    # Code-generation model (scene_coder only) — separate endpoint so it can point
+    # at a different provider (e.g. DeepSeek) than scene_script/prompt_maker.
+    code_llm_base_url: str = "http://localhost:8800/v1"
+    code_llm_api_key: str = "not-needed"
+    code_llm_model: str = "qwen2.5-72b-instruct-awq"
 
 
 @lru_cache
 def get_settings() -> Settings:
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key:
-        raise RuntimeError(
-            "ANTHROPIC_API_KEY is not set. Copy .env.example to .env and fill it in."
-        )
+    llm_base_url = os.environ.get("LLM_BASE_URL", "http://localhost:8800/v1")
+    llm_api_key = os.environ.get("LLM_API_KEY", "not-needed")
+    llm_model = os.environ.get("LLM_MODEL", "qwen2.5-72b-instruct-awq")
     return Settings(
-        anthropic_api_key=api_key,
-        llm_model=os.environ.get("LLM_MODEL", "claude-sonnet-5"),
-        tts_voice=os.environ.get("TTS_VOICE", "en_US-lessac-medium"),
+        llm_base_url=llm_base_url,
+        llm_api_key=llm_api_key,
+        llm_model=llm_model,
+        tts_voice=os.environ.get("TTS_VOICE", "af_heart"),
+        # Falls back to the default LLM settings if CODE_LLM_* isn't set.
+        code_llm_base_url=os.environ.get("CODE_LLM_BASE_URL", llm_base_url),
+        code_llm_api_key=os.environ.get("CODE_LLM_API_KEY", llm_api_key),
+        code_llm_model=os.environ.get("CODE_LLM_MODEL", llm_model),
     )

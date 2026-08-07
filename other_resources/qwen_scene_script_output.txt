@@ -1,0 +1,32 @@
+Ignoring wrong pointing object 15 0 (offset 0)
+Ignoring wrong pointing object 103 0 (offset 0)
+Ignoring wrong pointing object 104 0 (offset 0)
+================================================================================
+Scene Script (narration + animation per scene)
+================================================================================
+
+--- Scene 0 [manim] Understanding Biological Signals ---
+Narration: In the world of biology, a signal is a measurable, time-varying quantity produced by a physiological process in a living organism. These bio signals, whether they're electrical, chemical, or mechanical, carry valuable information about the body's functions and can be crucial for medical diagnosis.
+Animation: A simple, stylized illustration of a human body with various signals (electrical waves, chemical molecules, and mechanical movements) emanating from different organs. Each signal is labeled with its type (electrical, chemical, mechanical).
+
+--- Scene 1 [manim] Resting Membrane Potential ---
+Narration: To understand how neurons communicate, we need to start with the basics: the resting membrane potential. Neurons are surrounded by a lipid bilayer membrane that is impermeable to charged ions. Ions must pass through specialized proteins called ion channels to enter or exit the neuron. These channels can be open, closed, or inactive, and some are sensitive to voltage changes, known as voltage-gated ion channels.
+Animation: A stylized neuron with a detailed view of its membrane. The membrane is shown with ion channels in different states (open, closed, inactive). Arrows indicate the movement of ions through the open channels.
+
+--- Scene 2 [manim] Resting Membrane Potential Details ---
+Narration: At rest, the inside of a neuron is approximately 70 millivolts more negative than the outside, creating a resting membrane potential of -70 mV. This potential is not a passive state but an actively maintained equilibrium. It's influenced by three key factors: unequal ion concentrations, selective membrane permeability, and the sodium-potassium pump.
+Animation: A detailed diagram of the neuron's membrane, showing the concentration gradients of Na⁺ and K⁺ ions. The membrane is labeled with the resting potential (-70 mV). Arrows indicate the continuous leakage of K⁺ ions and the action of the sodium-potassium pump.
+
+--- Scene 3 [manim] Ion Concentrations and Permeability ---
+Narration: Sodium ions (Na⁺) are concentrated outside the cell, while potassium ions (K⁺) are concentrated inside. Large negatively charged proteins are trapped inside the cell. The membrane is more permeable to K⁺ at rest, allowing it to leak out, which leaves the inside more negative. The sodium-potassium pump actively maintains this imbalance by pumping three Na⁺ ions out for every two K⁺ ions it brings in, reinforcing the negative resting potential.
+Animation: A close-up of the neuron's membrane, showing the concentration gradients of Na⁺ and K⁺ ions. The membrane is labeled with the resting potential (-70 mV). Arrows indicate the continuous leakage of K⁺ ions and the action of the sodium-potassium pump, with ATP molecules providing energy.
+
+--- Scene 4 [manim] Equilibrium Potential ---
+Narration: The equilibrium potential for a specific ion, such as potassium (K⁺), is the potential difference that exactly balances the concentration gradient across the membrane. This is known as the Nernst potential, Eion. The Nernst equation helps us calculate this equilibrium potential using the gas constant (R), absolute temperature (T), Faraday constant (F), the charge of the ion (Zion), and the concentrations of the ion inside and outside the cell.
+Animation: A step-by-step derivation of the Nernst equation, showing the variables and constants involved. The final equation is highlighted, and a simple example calculation is shown using typical values for K⁺ ions.
+
+--- Scene 5 [manim] Nernst Equation Example ---
+Narration: Let's use the Nernst equation to calculate the equilibrium potential for potassium (K⁺). Given the gas constant (R = 8.314 J/(mol·K)), absolute temperature (T = 310 K), Faraday constant (F = 9.6485 × 10⁴ C/mol), the charge of the ion (Zion = 1), and typical concentrations of K⁺ inside (120 mM) and outside (5 mM) the cell, we can plug these values into the equation to find EK.
+Animation: A detailed calculation of the Nernst equation for K⁺, showing each step of the substitution and simplification. The final result, EK ≈ -89 mV, is highlighted.
+
+Done.

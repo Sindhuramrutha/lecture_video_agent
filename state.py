@@ -20,13 +20,13 @@ class Scene(BaseModel):
     subtopic: str
     narration: str
     animation_description: str
-    scene_type: Literal["manim", "matplotlib", "image_only", "audio_only"]
+    scene_type: Literal["manim", "image_only", "audio_only"]
 
     # --- produced by the Audio Generator stage ---
     audio_path: Optional[str] = None
     timestamps: list[WordTiming] = Field(default_factory=list)
 
-    # --- produced by the Visual branch (manim/matplotlib scenes only, for now) ---
+    # --- produced by the Visual branch (manim scenes only, for now) ---
     render_prompt: Optional[str] = None
     code: Optional[str] = None
     video_path: Optional[str] = None
@@ -46,11 +46,12 @@ class VideoState(BaseModel):
     reference_paths: list[str] = Field(default_factory=list)
     references: list[str] = Field(default_factory=list)
 
-    # --- produced by the Planner agent ---
+    # --- produced by the Planner agent (unused by the default graph — see workflow.py) ---
     objectives: list[str] = Field(default_factory=list)
     teaching_plan: Optional[str] = None
 
-    # --- produced by the Detailed Scripter agent ---
+    # --- input to the Audio-Visual Scene Script agent: already-written textbook-style
+    # content, supplied directly by the caller (see utils.references) ---
     detailed_script: Optional[str] = None
 
     # --- produced by the Audio-Visual Scene Script agent ---

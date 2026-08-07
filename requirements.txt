@@ -1,12 +1,25 @@
-langgraph>=0.2.0
-anthropic>=0.40.0
-pydantic>=2.0
-python-dotenv>=1.0
-jupyter>=1.0
-ipykernel>=6.29
-pypdf>=4.0
-piper-tts>=1.2
-faster-whisper>=1.0
-manim>=0.19
-matplotlib>=3.9
-tqdm>=4.66
+# Generated from the working video_engine conda env (see README/CLAUDE notes for
+# setup). Manim is pinned exactly, not >= : this pipeline's scene_coder prompt and
+# utils/manim_reference.py are both written against 0.20.1's actual API (e.g. the
+# Code mobject's .code_lines attribute) -- a different Manim version can rename or
+# remove attributes this pipeline depends on, and that's caused real render
+# failures before. Everything else uses >= since those interfaces are stable here.
+langgraph>=1.2.0
+openai>=2.0.0
+pydantic>=2.13
+python-dotenv>=1.2
+pypdf>=6.0
+python-docx>=1.2
+kokoro>=0.9.4
+soundfile>=0.14
+faster-whisper>=1.2
+manim==0.20.1
+ManimPango>=0.6.1
+numpy>=2.5
+tqdm>=4.70
+
+# Not on PyPI / installed separately:
+#   ffmpeg   -- required system binary (audio/video muxing); install via your OS
+#               package manager or conda-forge, not pip.
+#   A LaTeX distribution is deliberately NOT required -- scene_coder is instructed
+#   to never use MathTex/Tex for exactly this reason.
