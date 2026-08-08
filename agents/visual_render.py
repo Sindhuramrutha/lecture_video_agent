@@ -33,7 +33,7 @@ from utils.ffmpeg_utils import duration_seconds
 from utils.notify import notify
 from utils.storage import project_dir
 
-MAX_RENDER_ATTEMPTS = 2  # technical-failure retries only, not aesthetic judgment
+MAX_RENDER_ATTEMPTS = 3  # technical-failure retries only, not aesthetic judgment; matches run_project.py's MAX_ATTEMPTS
 DURATION_SHORTFALL_TOLERANCE = 2.0  # seconds; below this, treat as a real bug, not rounding
 # compose_scene() hard-trims the video to the audio's exact length -- an overshoot beyond this
 # tolerance would get silently chopped off at compose time, meaning whatever a human reviewed
