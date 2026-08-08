@@ -27,7 +27,7 @@ from pathlib import Path
 
 from agents import scene_coder
 from utils import av_compose, manim_lint, manim_render
-from utils.ffmpeg_utils import duration_seconds
+from utils.ffmpeg_utils import check_ffmpeg_available, duration_seconds
 
 PROJECTS_DIR = Path(__file__).resolve().parent / "projects"
 MAX_ATTEMPTS = 3
@@ -149,6 +149,8 @@ def main() -> None:
     parser.add_argument("--scenes", default=None, help="Comma-separated scene ids (default: all scenes with a prompt file)")
     parser.add_argument("--stage", choices=["all", "code", "render", "compose"], default="all")
     args = parser.parse_args()
+
+    check_ffmpeg_available()
 
     project_dir = PROJECTS_DIR / args.project
     if not project_dir.is_dir():

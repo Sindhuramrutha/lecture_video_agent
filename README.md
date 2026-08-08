@@ -7,10 +7,11 @@ composed scene clips → a stitched final video with subtitles.
 
 ## 1. Prerequisites
 
-- Linux/macOS, Python 3.12
+- Linux/macOS/Windows, Python 3.12
 - [Conda](https://docs.conda.io/) (Miniconda is enough) — see install steps below
-- `ffmpeg` — required for audio/video muxing, installed via conda-forge or your
-  OS package manager (not available on PyPI)
+- `ffmpeg` — required for audio/video muxing (not available on PyPI); see the
+  OS-specific instructions in step 3 — **Windows needs a different install path
+  than Linux/macOS**, see the note there
 - An LLM API key (DeepSeek by default, or your own OpenAI-compatible endpoint
   such as a self-hosted vLLM server)
 
@@ -37,9 +38,6 @@ cd video_engine
 conda create -n video_engine python=3.12 -y
 conda activate video_engine
 
-# System binary not on PyPI:
-conda install -c conda-forge ffmpeg -y
-
 # Python dependencies:
 pip install -r requirements.txt
 ```
@@ -47,6 +45,50 @@ pip install -r requirements.txt
 `requirements.txt` pins `manim==0.20.1` exactly — the code generator and
 `utils/manim_reference.py` are written against that version's API, and a
 different Manim version can rename/remove attributes this pipeline depends on.
+
+### Installing ffmpeg
+
+**Linux/macOS:**
+
+```bash
+conda install -c conda-forge ffmpeg -y
+```
+
+**Windows: do not use `conda install -c conda-forge ffmpeg`.** That package is a
+shared-library build (`ffprobe.exe` depends on separately-versioned DLLs sitting
+next to it), and on some Windows machines it installs an `ffprobe.exe` that
+crashes immediately with `STATUS_ENTRYPOINT_NOT_FOUND` (a Python traceback
+ending in `subprocess.CalledProcessError: ... exit status 3221225785`) due to a
+mismatched/corrupted DLL. Use a static build instead — it's self-contained, so
+this failure mode can't happen:
+
+```powershell
+winget install Gyan.FFmpeg
+```
+
+Then open a **new** terminal (so `PATH` picks up the change), reactivate the
+conda env, and verify:
+
+```powershell
+conda activate video_engine
+ffprobe -version
+```
+
+This should print version info. If it doesn't, or `ffprobe` isn't found at all,
+see the "ffmpeg preflight check" note below — `run_chapter.py`/`run_project.py`
+will also catch and explain this automatically the moment you try to run them.
+
+### Verifying the install
+
+Both entry-point scripts (`run_chapter.py`, `run_project.py`) check that
+`ffmpeg`/`ffprobe` actually run before doing any work, and exit immediately
+with an actionable message if not — rather than failing several minutes into a
+run, after the script/audio stages have already completed. You can also check
+manually any time with:
+
+```bash
+ffprobe -version
+```
 
 ## 4. Configure environment variables
 

@@ -73,7 +73,7 @@ from agents.visual_render import RENDERERS
 from state import Scene, VideoState
 from utils.audio_alignment import align
 from utils.av_compose import compose_scene
-from utils.ffmpeg_utils import duration_seconds
+from utils.ffmpeg_utils import check_ffmpeg_available, duration_seconds
 from utils.llm import generate_code_model
 from utils.placeholder import make_placeholder_video
 from utils.references import load_references
@@ -403,6 +403,8 @@ def main() -> None:
         "already configured for rendering.",
     )
     args = parser.parse_args()
+
+    check_ffmpeg_available()
 
     project_dir = PROJECTS_DIR / args.project
     input_path = project_dir / "input_files" / args.input
