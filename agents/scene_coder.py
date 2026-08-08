@@ -32,6 +32,8 @@ _FRAME_GUARD_SOURCE = '''
 def _check_frame_bounds(_scene, _mx=7.05, _my=3.95):
     for _mob in _scene.mobjects:
         try:
+            if getattr(_mob, "z_index", 0) < 0:
+                continue  # background layer -- deliberately full-bleed, not clipped content
             _l, _r = _mob.get_left()[0], _mob.get_right()[0]
             _t, _b = _mob.get_top()[1], _mob.get_bottom()[1]
         except Exception:
