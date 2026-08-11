@@ -56,16 +56,17 @@ def generate(system: str, prompt: str, max_tokens: int = 4096) -> str:
 
 
 def generate_code_model(system: str, prompt: str, max_tokens: int = 8192) -> str:
-    """Calls the code-generation endpoint (currently DeepSeek), thinking left on.
+    """Calls the code-generation endpoint (currently DeepSeek), thinking disabled.
 
-    Thinking used to be disabled here because DeepSeek v4's internal reasoning
-    pass consumes completion tokens before any visible content, and on the old
-    tight max_tokens budget that risked silently exhausting it and returning
-    empty content. Now that max_tokens is generous (see scene_coder.generate_code),
-    that risk is gone, and the reasoning pass is worth keeping for exactly the
-    kind of multi-step bookkeeping scene code needs (e.g. tracking a cumulative
-    scale factor across several sequential .animate.scale() calls) -- something
-    a single-pass, non-reasoning completion tends to get wrong.
+    Thinking was briefly re-enabled as an untested hypothesis that DeepSeek's
+    reasoning pass would help with multi-step bookkeeping (e.g. tracking a
+    cumulative scale factor across several sequential .animate.scale() calls)
+    -- but that was never actually verified with a controlled before/after
+    test, and it has a real, confirmed latency cost (the reasoning pass runs
+    before any visible content, on every single call). Disabled again to get
+    that latency back now that other changes (the expanded manim_reference.py,
+    richer prompt guidance) may cover the same ground without it. Re-enable
+    and test head-to-head if a similar cumulative-tracking bug resurfaces.
     """
     settings = get_settings()
     response = _code_client().chat.completions.create(
@@ -75,6 +76,7 @@ def generate_code_model(system: str, prompt: str, max_tokens: int = 8192) -> str
             {"role": "system", "content": system},
             {"role": "user", "content": prompt},
         ],
+        extra_body={"thinking": {"type": "disabled"}},
     )
     return response.choices[0].message.content
 

@@ -46,6 +46,11 @@ Rules:
 import (headless rendering, no display).
 - Import only matplotlib, numpy, and the Python standard library.
 - Total animation runtime must be within 1 second of the target duration.
+- Minimum output resolution is 1280x720 (720p) -- never below this. `figure size in inches × dpi` \
+determines the pixel dimensions, so pick both together to guarantee the floor, e.g. \
+`fig, ax = plt.subplots(figsize=(12.8, 7.2), dpi=100)` (exactly 1280x720) or any other \
+combination whose product is at least that on both axes — a small figsize at a low dpi (e.g. \
+`figsize=(6, 4), dpi=100`, only 600x400) silently fails this floor.
 - Save the result with exactly this call: `anim.save("output.mp4", writer="ffmpeg", fps=30)` — \
 that exact filename, nothing else.
 - No file I/O other than that save call, no network access, no external assets.

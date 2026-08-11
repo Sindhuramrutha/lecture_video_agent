@@ -1,7 +1,9 @@
 """Deterministic Manim render wrapper. No LLM involvement — pure execution.
 
-Renders at low quality (480p15) for fast iteration through the critique
-loop. Swap to a higher -q flag for a final pass once scenes are approved.
+Renders at medium quality (720p30) -- the floor for published content;
+never drop below this. -qh (1080p60) is available if a sharper final pass
+is ever needed, at real render-time cost -- 720p was chosen specifically
+to stay at the minimum that still satisfies that floor, not higher.
 """
 
 import subprocess
@@ -44,7 +46,7 @@ def render_scene(code: str, class_name: str, work_dir: Path) -> Path:
     try:
         result = subprocess.run(
             [
-                sys.executable, "-m", "manim", "render", "-ql", "--progress_bar", "none",
+                sys.executable, "-m", "manim", "render", "-qm", "--progress_bar", "none",
                 "--media_dir", str(media_dir), str(code_path), class_name,
             ],
             capture_output=True,
