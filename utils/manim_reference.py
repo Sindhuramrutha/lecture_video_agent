@@ -12,6 +12,13 @@ Introspecting the live package instead means this text is always accurate for
 the Manim version actually running, on whatever machine it runs on, and it
 doesn't need to be maintained by hand or kept in sync after a Manim upgrade.
 
+Every class/method list below was chosen because a real generated scene
+crashed on it at least once (see individual comments), or it's one of the
+small set of mobjects/animations this pipeline's prompt explicitly tells the
+model to use -- not padded out to cover the whole Manim API, since that would
+just dilute what the model actually needs to see. Add to this the same way:
+introspect the real signature, don't type one in from memory.
+
 Computed once at import time (not per-call) and spliced into scene_coder's
 SYSTEM_PROMPT, so every generation call is grounded in the real API instead of
 the model's (or a prompt author's) memory of it.
@@ -19,13 +26,51 @@ the model's (or a prompt author's) memory of it.
 
 import inspect
 
-from manim import Code, Mobject, SurroundingRectangle, Table
+from manim import (
+    Arrow,
+    Camera,
+    Code,
+    DecimalNumber,
+    Dot,
+    Ellipse,
+    FadeIn,
+    FadeOut,
+    GrowFromCenter,
+    ImageMobject,
+    Integer,
+    Line,
+    Mobject,
+    MovingCamera,
+    Polygon,
+    Rectangle,
+    SpinInFromNothing,
+    SurroundingRectangle,
+    SVGMobject,
+    Table,
+    Text,
+    ValueTracker,
+    Vector,
+    VGroup,
+    VMobject,
+    Write,
+)
 
 _POSITIONING_METHODS = [
     "move_to", "shift", "next_to", "to_edge", "to_corner",
     "scale", "scale_to_fit_width", "scale_to_fit_height",
 ]
+_FILL_STROKE_METHODS = ["set_fill", "set_stroke", "set_color", "set_opacity"]
 _TABLE_METHODS = ["get_rows", "get_columns", "get_entries", "get_entries_without_labels"]
+# One constructor per shape/mobject actually named in scene_coder.py's prompt --
+# each crashes if given a kwarg only some *other* class in this list accepts
+# (that's exactly how the Integer(weight=...) bug happened: weight is real, just
+# not on this class).
+_SHAPE_CLASSES = [
+    Rectangle, Ellipse, Line, Dot, Arrow, Vector, Polygon, VGroup,
+    ImageMobject, SVGMobject, ValueTracker,
+]
+_TEXT_CLASSES = [Text, Integer, DecimalNumber]
+_ANIMATION_CLASSES = [Write, FadeIn, FadeOut, GrowFromCenter, SpinInFromNothing]
 
 
 def _signature_line(cls, name: str) -> str:
@@ -37,6 +82,13 @@ def _signature_line(cls, name: str) -> str:
     except (TypeError, ValueError):
         return f"  {cls.__name__}.{name}(...)"
     return f"  {cls.__name__}.{name}{sig}"
+
+
+def _init_line(cls) -> str:
+    try:
+        return f"  {cls.__name__}{inspect.signature(cls.__init__)}"
+    except (TypeError, ValueError):
+        return f"  {cls.__name__}(...)"
 
 
 def _build_reference() -> str:
@@ -55,18 +107,43 @@ def _build_reference() -> str:
         "package, not memorized, so trust this over general Manim knowledge if "
         "they ever disagree:",
         "",
-        "Code mobject:",
-        *code_attrs,
+        "Text vs numeric mobjects -- these look similar but take different kwargs; "
+        "a kwarg valid on one crashes on another (confirmed: this broke a real "
+        "scene -- Integer(weight=...) crashed because weight only exists on Text):",
+        *(_init_line(c) for c in _TEXT_CLASSES),
+        "",
+        "Every shape/mobject below accepts these VMobject base kwargs via **kwargs "
+        "in addition to its own listed ones (fill_opacity defaults to 0 -- i.e. "
+        "*unfilled* -- unless you pass fill_color/fill_opacity explicitly or call "
+        ".set_fill() after construction, per the fill-don't-outline rule above):",
+        _init_line(VMobject),
+        "",
+        "Shape/mobject constructors actually used in this pipeline:",
+        *(_init_line(c) for c in _SHAPE_CLASSES),
+        "",
+        "Fill/stroke/color setter methods -- note the constructor kwarg is "
+        "stroke_width, but the set_stroke() *method*'s parameter is just width, "
+        "not stroke_width (confirmed: mixing these up crashed a real scene):",
+        *filter(None, (_signature_line(VMobject, name) for name in _FILL_STROKE_METHODS)),
         "",
         "Mobject positioning methods (all take a single point/mobject/vector "
         "argument or explicit kwargs -- never separate x, y, z positional args):",
         *filter(None, (_signature_line(Mobject, name) for name in _POSITIONING_METHODS)),
         "",
+        "Entrance/exit animation constructors:",
+        *(_init_line(c) for c in _ANIMATION_CLASSES),
+        "",
+        "Camera (self.camera.background_color is a real settable property on "
+        "both Scene and MovingCameraScene; MovingCamera adds self.camera.frame, "
+        "which only exists when the scene subclasses MovingCameraScene):",
+        f"  Camera.background_color is a property: {isinstance(getattr(Camera, 'background_color', None), property)}",
+        _init_line(MovingCamera),
+        "",
         "Table:",
         *filter(None, (_signature_line(Table, name) for name in _TABLE_METHODS)),
         "",
         "SurroundingRectangle:",
-        _signature_line(SurroundingRectangle, "__init__"),
+        _init_line(SurroundingRectangle),
     ]
     return "\n".join(lines)
 

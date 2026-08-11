@@ -56,13 +56,16 @@ def generate(system: str, prompt: str, max_tokens: int = 4096) -> str:
 
 
 def generate_code_model(system: str, prompt: str, max_tokens: int = 8192) -> str:
-    """Calls the code-generation endpoint (currently DeepSeek) with thinking disabled.
+    """Calls the code-generation endpoint (currently DeepSeek), thinking left on.
 
-    DeepSeek v4 models default to an internal "thinking" pass that consumes
-    completion tokens before any visible content — on a tight max_tokens budget
-    this can silently exhaust the budget and return empty content. Since we want
-    fast, direct code output (not a reasoning trace) here, thinking is disabled
-    per-request via extra_body.
+    Thinking used to be disabled here because DeepSeek v4's internal reasoning
+    pass consumes completion tokens before any visible content, and on the old
+    tight max_tokens budget that risked silently exhausting it and returning
+    empty content. Now that max_tokens is generous (see scene_coder.generate_code),
+    that risk is gone, and the reasoning pass is worth keeping for exactly the
+    kind of multi-step bookkeeping scene code needs (e.g. tracking a cumulative
+    scale factor across several sequential .animate.scale() calls) -- something
+    a single-pass, non-reasoning completion tends to get wrong.
     """
     settings = get_settings()
     response = _code_client().chat.completions.create(
@@ -72,7 +75,6 @@ def generate_code_model(system: str, prompt: str, max_tokens: int = 8192) -> str
             {"role": "system", "content": system},
             {"role": "user", "content": prompt},
         ],
-        extra_body={"thinking": {"type": "disabled"}},
     )
     return response.choices[0].message.content
 

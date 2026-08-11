@@ -1,16 +1,22 @@
 """Static pre-render checks for generated Manim code.
 
-Catches known bug classes -- ImageMobject/SVGMobject on nonexistent files,
-MathTex/Tex needing an absent LaTeX install, self.camera.frame on a plain
-Scene -- with a cheap regex pass before ever invoking Manim. Every one of
-these has actually crashed a real render in this pipeline; catching it here
-costs milliseconds, versus a render attempt (and the LLM call that produced
-it) burned on a mistake that was already known to be fatal.
+Catches known bug classes -- ImageMobject/SVGMobject on a file that isn't a
+real registered asset, MathTex/Tex needing an absent LaTeX install,
+self.camera.frame on a plain Scene -- with a cheap regex pass before ever
+invoking Manim. Every one of these has actually crashed a real render in
+this pipeline; catching it here costs milliseconds, versus a render attempt
+(and the LLM call that produced it) burned on a mistake that was already
+known to be fatal.
 """
 
 import re
 
-_FORBIDDEN_ASSETS = re.compile(r"\b(ImageMobject|SVGMobject)\s*\(")
+from utils.asset_library import image_asset_paths
+
+_IMAGE_CTOR = re.compile(r"\b(?:ImageMobject|SVGMobject)\s*\(")
+_ASSET_PATHS_ARG = re.compile(r"\s*ASSET_PATHS\[\s*['\"]([^'\"]+)['\"]\s*\]")
+_STRING_LITERAL_ARG = re.compile(r"\s*['\"]([^'\"]+)['\"]")
+_SAVEFIG_TARGET = re.compile(r"\.savefig\(\s*['\"]([^'\"]+)['\"]")
 _FORBIDDEN_LATEX = re.compile(r"\b(MathTex|Tex)\s*\(")
 _CAMERA_FRAME = re.compile(r"self\.camera\.frame\b")
 _CLASS_DECL = re.compile(r"class\s+(\w+)\s*\(([^)]*)\)\s*:")
@@ -71,11 +77,29 @@ def lint_code(code: str, class_name: str) -> list[str]:
             "Contains a ``` markdown fence line -- this always causes a SyntaxError. "
             "Respond with only the raw Python source, no fences anywhere in the response."
         )
-    if _FORBIDDEN_ASSETS.search(code):
+    valid_assets = image_asset_paths()
+    savefig_targets = set(_SAVEFIG_TARGET.findall(code))
+    for ctor_match in _IMAGE_CTOR.finditer(code):
+        arg_match = _ASSET_PATHS_ARG.match(code, ctor_match.end())
+        if arg_match is not None:
+            key = arg_match.group(1)
+            if key not in valid_assets:
+                valid = ", ".join(repr(k) for k in valid_assets) or "(none registered)"
+                issues.append(
+                    f"ASSET_PATHS[{key!r}] is not a registered asset. Valid keys: {valid}. Use "
+                    f"one of those, or build the visual from Manim's own vector primitives instead."
+                )
+            continue
+        literal_match = _STRING_LITERAL_ARG.match(code, ctor_match.end())
+        if literal_match is not None and literal_match.group(1) in savefig_targets:
+            continue  # a locally-generated matplotlib plot, produced by savefig() in this same file
         issues.append(
-            "Uses ImageMobject or SVGMobject -- both load a file from disk and no "
-            "images/SVGs are supplied to this pipeline, so this always crashes. "
-            "Build the visual from Manim's own vector primitives instead."
+            "Uses ImageMobject or SVGMobject with a path that's neither an ASSET_PATHS[...] "
+            "lookup nor a filename this same file produced via matplotlib's savefig() -- any "
+            "other path is not a real file and always crashes. Only reference a key from the "
+            "available assets list in the system prompt (e.g. SVGMobject(ASSET_PATHS[\"heart\"])), "
+            "load a filename you just saved yourself with savefig(), or build the visual from "
+            "Manim's own vector primitives instead."
         )
     if _FORBIDDEN_LATEX.search(code):
         issues.append(

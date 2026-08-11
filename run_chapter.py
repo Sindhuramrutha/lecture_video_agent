@@ -69,7 +69,7 @@ for _noisy_logger in ["httpx", "httpcore", "openai", "huggingface_hub", "faster_
 
 from agents.prompt_maker import make_render_prompt
 from agents.scene_script import scene_script_node
-from agents.visual_render import RENDERERS
+from agents.visual_render import RENDERERS, build_chapter_context
 from state import Scene, VideoState
 from utils.audio_alignment import align
 from utils.av_compose import compose_scene
@@ -98,12 +98,12 @@ def load_scenes(chapter_dir: Path) -> Optional[list[Scene]]:
     state_path = chapter_dir / "state.json"
     if not state_path.exists():
         return None
-    return [Scene(**s) for s in json.loads(state_path.read_text())]
+    return [Scene(**s) for s in json.loads(state_path.read_text(encoding="utf-8"))]
 
 
 def save_scenes(chapter_dir: Path, scenes: list[Scene]) -> list[Scene]:
     state_path = chapter_dir / "state.json"
-    state_path.write_text(json.dumps([s.model_dump() for s in scenes], indent=2))
+    state_path.write_text(json.dumps([s.model_dump() for s in scenes], indent=2), encoding="utf-8")
     return scenes
 
 
@@ -118,7 +118,7 @@ def stage_script(chapter_dir: Path, state: VideoState) -> list[Scene]:
             f"Narration:\n{scene.narration}\n\n"
             f"Animation description:\n{scene.animation_description}\n"
         )
-        (script_dir / f"scene_{scene.id:02d}.txt").write_text(text)
+        (script_dir / f"scene_{scene.id:02d}.txt").write_text(text, encoding="utf-8")
     print(f"  scene script: {len(scenes)} scene(s) -> {script_dir}")
     return save_scenes(chapter_dir, scenes)
 
@@ -137,7 +137,7 @@ def stage_audio(chapter_dir: Path, scenes: list[Scene]) -> list[Scene]:
         # exact timestamps to tie each animation beat to what's being said at that
         # moment, so it's worth keeping in a form you can actually inspect.
         transcript_lines = [f"{w.start:.2f}\t{w.end:.2f}\t{w.word}" for w in timestamps]
-        (transcripts_dir / f"scene_{scene.id:02d}.txt").write_text("\n".join(transcript_lines))
+        (transcripts_dir / f"scene_{scene.id:02d}.txt").write_text("\n".join(transcript_lines), encoding="utf-8")
         updated.append(scene.model_copy(update={"audio_path": str(out_path), "timestamps": timestamps}))
     print(f"  audio: {len(updated)} scene(s) -> {audio_dir}")
     print(f"  transcripts -> {transcripts_dir}")
@@ -152,7 +152,7 @@ def stage_prompts(chapter_dir: Path, scenes: list[Scene]) -> list[Scene]:
     for scene in tqdm(scenes, desc="Prompts", unit="scene"):
         render_prompt = make_render_prompt(scene, previous_scene) if scene.scene_type in RENDERERS else None
         if render_prompt:
-            (prompts_dir / f"scene_{scene.id:02d}_prompt.txt").write_text(render_prompt)
+            (prompts_dir / f"scene_{scene.id:02d}_prompt.txt").write_text(render_prompt, encoding="utf-8")
         scene = scene.model_copy(update={"render_prompt": render_prompt})
         updated.append(scene)
         previous_scene = scene
@@ -168,7 +168,7 @@ def _log_scene_error(chapter_dir: Path, scene_id: int, detail: str) -> Path:
     logs_dir = chapter_dir / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
     log_path = logs_dir / f"scene_{scene_id:02d}_error.log"
-    log_path.write_text(detail)
+    log_path.write_text(detail, encoding="utf-8")
     return log_path
 
 
@@ -186,7 +186,7 @@ def stage_explain(chapter_dir: Path, scene_id: int) -> None:
             f"No saved error log for scene {scene_id} at {log_path} -- "
             f"that scene hasn't failed (or hasn't been run yet)."
         )
-    detail = log_path.read_text()
+    detail = log_path.read_text(encoding="utf-8")
     print(f"Asking DeepSeek to explain scene {scene_id}'s failure...\n")
     explanation = generate_code_model(system=_EXPLAIN_SYSTEM, prompt=detail, max_tokens=400)
     print(explanation)
@@ -236,6 +236,7 @@ def stage_render(chapter_dir: Path, scenes: list[Scene], scene_ids: Optional[lis
     """
     rendered_dir = chapter_dir / "rendered_video"
     rendered_dir.mkdir(parents=True, exist_ok=True)
+    chapter_context = build_chapter_context(scenes)
     updated = []
     previous_scene = None
     bar = tqdm(scenes, desc="Render", unit="scene")
@@ -247,7 +248,9 @@ def stage_render(chapter_dir: Path, scenes: list[Scene], scene_ids: Optional[lis
         bar.set_postfix_str(f"scene {scene.id} ({scene.scene_type})")
         if scene.scene_type in RENDERERS:
             try:
-                scene = RENDERERS[scene.scene_type](scene, chapter_dir, previous_scene=previous_scene)
+                scene = RENDERERS[scene.scene_type](
+                    scene, chapter_dir, previous_scene=previous_scene, chapter_context=chapter_context
+                )
             except Exception as exc:
                 # _run_render_loop only retries manim_render.RenderError (an actual Manim
                 # crash) -- anything else (a DeepSeek API hiccup, a network blip, a bug)
@@ -281,6 +284,7 @@ def stage_revise(chapter_dir: Path, scenes: list[Scene], scene_id: int, feedback
     """
     rendered_dir = chapter_dir / "rendered_video"
     rendered_dir.mkdir(parents=True, exist_ok=True)
+    chapter_context = build_chapter_context(scenes)
     updated = []
     found = False
     previous_scene = None
@@ -294,7 +298,9 @@ def stage_revise(chapter_dir: Path, scenes: list[Scene], scene_id: int, feedback
             raise SystemExit(f"scene {scene_id} is scene_type={scene.scene_type}, nothing to revise")
         print(f"  scene {scene.id}: revising with feedback: {feedback!r}")
         try:
-            scene = RENDERERS[scene.scene_type](scene, chapter_dir, instruction=feedback, previous_scene=previous_scene)
+            scene = RENDERERS[scene.scene_type](
+                scene, chapter_dir, instruction=feedback, previous_scene=previous_scene, chapter_context=chapter_context
+            )
         except Exception as exc:
             scene = scene.model_copy(update={
                 "render_status": "failed",
@@ -370,7 +376,7 @@ def finalize(project_dir: Path, chapter_slug: str, scenes: list[Scene]) -> None:
     final_path = stitch_clips(clip_paths, videos_dir / f"{chapter_slug}.mp4")
 
     srt_text = build_srt(scenes)
-    (videos_dir / f"{chapter_slug}.srt").write_text(srt_text)
+    (videos_dir / f"{chapter_slug}.srt").write_text(srt_text, encoding="utf-8")
 
     print(f"Final video -> {final_path}")
 
@@ -402,6 +408,13 @@ def main() -> None:
         "already explained automatically -- no separate account needed, reuses the same key "
         "already configured for rendering.",
     )
+    parser.add_argument(
+        "--set-scene-type", default=None, choices=["manim", "matplotlib", "image_only", "audio_only"],
+        help="Override one scene's type (requires --scenes <single id>) -- e.g. the classifier "
+        "picked image_only for a scene with substantial narration, and you want real animation "
+        "instead. Clears that scene's stale render state (code/video/status) so it starts fresh "
+        "under the new type; follow up with --stage render --scenes <id> to actually render it.",
+    )
     args = parser.parse_args()
 
     check_ffmpeg_available()
@@ -424,6 +437,36 @@ def main() -> None:
     print(f"Chapter: {chapter_slug}  (input: {input_path.name})")
 
     scene_ids = [int(s) for s in args.scenes.split(",")] if args.scenes else None
+
+    if args.set_scene_type is not None:
+        if not scene_ids or len(scene_ids) != 1:
+            raise SystemExit("--set-scene-type requires exactly one scene id via --scenes <id>")
+        scenes = load_scenes(chapter_dir)
+        if scenes is None:
+            raise SystemExit(f"No saved state for chapter {chapter_slug} yet — run the pipeline first")
+        scene_id = scene_ids[0]
+        updated, found = [], False
+        for scene in scenes:
+            if scene.id == scene_id:
+                found = True
+                old_type = scene.scene_type
+                scene = scene.model_copy(update={
+                    "scene_type": args.set_scene_type,
+                    "render_prompt": None,
+                    "code": None,
+                    "video_path": None,
+                    "render_attempts": 0,
+                    "render_status": "not_applicable",
+                    "last_feedback": None,
+                    "composed_path": None,
+                })
+                print(f"  scene {scene_id}: scene_type {old_type!r} -> {args.set_scene_type!r}, render state cleared")
+            updated.append(scene)
+        if not found:
+            raise SystemExit(f"No scene with id {scene_id} in this chapter's state")
+        save_scenes(chapter_dir, updated)
+        print(f"  next: python run_chapter.py --project {args.project} --input {args.input} --scenes {scene_id} --stage render")
+        return
 
     if args.revise is not None:
         if not scene_ids or len(scene_ids) != 1:

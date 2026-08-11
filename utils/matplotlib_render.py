@@ -9,16 +9,16 @@ import subprocess
 import sys
 from pathlib import Path
 
+from utils.render_errors import RenderError
 
-class RenderError(Exception):
-    pass
+__all__ = ["RenderError", "render_scene"]
 
 
 def render_scene(code: str, script_name: str, work_dir: Path) -> Path:
     work_dir = work_dir.resolve()
     work_dir.mkdir(parents=True, exist_ok=True)
     code_path = work_dir / f"{script_name}.py"
-    code_path.write_text(code)
+    code_path.write_text(code, encoding="utf-8")
 
     output_path = work_dir / "output.mp4"
     output_path.unlink(missing_ok=True)

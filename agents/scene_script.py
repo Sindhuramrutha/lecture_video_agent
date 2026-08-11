@@ -56,18 +56,30 @@ disappears, in enough detail that a programmer could implement it without seeing
 the script.
 - The scene type, based on this rule — pick the cheapest option that still teaches the point, \
 don't build an animation just because you can:
-  - "manim": every animated scene, whether the content is stylized/constructed (equations, \
-phase portraits, vector fields, geometric constructions, code walkthroughs, a literal physical \
-system) or real computed data (a numeric time series, a histogram, a statistical plot, the \
-literal output of integrating an equation) — Manim's own charting mobjects (`Axes`, `BarChart`, \
-plotted `Line`/`Dot` points) cover data visualization just as well as stylized geometry, so \
-there is no separate renderer for "real data" scenes; everything animated is "manim".
-  - "image_only": a single static image or icon on screen (a photo, a diagram, an illustrative \
-SVG) teaches the point with no real animation needed.
+  - "manim": stylized or constructed scenes — equations, phase portraits, vector fields, \
+geometric constructions, code walkthroughs, a literal physical system (a mass on a spring, a \
+swinging pendulum) in motion. Anything built from shapes and motion rather than plotted from \
+real numbers.
+  - "matplotlib": real computed data rendered as an actual plot — a numeric time series, a \
+waveform, a histogram, a statistical or scientific chart, the literal output of integrating an \
+equation. Prefer this over "manim" whenever the scene's whole point is showing real data \
+precisely plotted (axes, gridlines, a properly scaled curve) rather than a stylized diagram — \
+matplotlib renders this kind of thing more precisely and cleanly than hand-built Manim shapes.
+  - "image_only": a single static image or icon on screen teaches the point with no real \
+animation needed. Important: no real illustration generator exists yet for this scene type — it \
+currently renders as a plain wrapped-text title card, not an actual picture. Only ever choose \
+"image_only" for a genuinely brief moment (a few seconds, well under this course's normal \
+15-45s scene length) where that's an acceptable stand-in — never for a scene with substantial \
+narration. A static card sitting on screen for 20-30+ seconds while narration keeps talking is a \
+worse viewing experience than an animated scene would have been; if the narration for this scene \
+runs anywhere near the normal scene length, use "manim" or "matplotlib" instead, even if the \
+visual is simple.
   - "audio_only": no meaningful visual is needed beyond a plain/branded background — a \
-transition, a rhetorical aside, a moment of pure exposition.
-  Prefer "image_only" or "audio_only" over "manim" whenever a full animation wouldn't add \
-teaching value. Default to "manim" when a scene needs any animation at all.
+transition, a rhetorical aside, a moment of pure exposition. Same duration caveat as \
+"image_only" — reserve for genuinely brief moments, not scenes with substantial narration.
+  Prefer "image_only" or "audio_only" over an animated scene whenever a full animation wouldn't \
+add teaching value. Default to "manim" or "matplotlib" (whichever fits per the rules above) \
+when a scene needs any animation at all.
 
 Critical rule for "manim" scenes — depict concretely, not just abstractly:
 - If the content is building intuition for a concept that has a physical embodiment (a \

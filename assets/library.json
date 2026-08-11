@@ -1,1 +1,137 @@
-{}
+{
+  "heart": {
+    "path": "image/test_heart.svg",
+    "asset_type": "image",
+    "description": "Simple solid filled heart icon (Bootstrap Icons, MIT licensed) -- use for anatomical heart references instead of hand-drawing one from primitives."
+  },
+  "brain": {
+    "path": "image/brain_test.svg",
+    "asset_type": "image",
+    "description": "Simple flat-color brain icon, side profile (OpenMoji U+1F9E0, CC BY-SA 4.0 licensed) -- use for brain/neuroscience references instead of hand-drawing one from primitives."
+  },
+  "stopwatch": {
+    "path": "image/stopwatch.svg",
+    "asset_type": "image",
+    "description": "Stopwatch icon (Bootstrap Icons, MIT licensed) -- use for reaction-time / timed-measurement references instead of hand-drawing a clock from primitives."
+  },
+  "activity": {
+    "path": "image/activity.svg",
+    "asset_type": "image",
+    "description": "Heartbeat/pulse-line icon (Bootstrap Icons, MIT licensed) -- use for generic bio-signal or vital-sign references (EEG, ECG, EMG) instead of hand-drawing a squiggly line."
+  },
+  "soundwave": {
+    "path": "image/soundwave.svg",
+    "asset_type": "image",
+    "description": "Sound-wave / oscillation icon (Bootstrap Icons, MIT licensed) -- use for signal, frequency, and rhythm references (EEG bands, tremor oscillation) instead of hand-drawing wave shapes."
+  },
+  "grid_matrix": {
+    "path": "image/grid-3x3-gap-fill.svg",
+    "asset_type": "image",
+    "description": "3x3 grid icon (Bootstrap Icons, MIT licensed) -- use to represent a matrix / linear-algebra data structure instead of hand-drawing a grid from lines."
+  },
+  "bar_chart": {
+    "path": "image/bar-chart.svg",
+    "asset_type": "image",
+    "description": "Bar chart icon (Bootstrap Icons, MIT licensed) -- use for statistics / distribution / probability references instead of hand-drawing bars or a bell curve."
+  },
+  "graph_trend": {
+    "path": "image/graph-up-arrow.svg",
+    "asset_type": "image",
+    "description": "Upward trend-line chart icon (Bootstrap Icons, MIT licensed) -- use for calculus/change, correlation, or rate-of-change references instead of hand-drawing an axis and line."
+  },
+  "cpu": {
+    "path": "image/cpu.svg",
+    "asset_type": "image",
+    "description": "CPU chip icon (Bootstrap Icons, MIT licensed) -- use for artificial-neuron, machine-learning, or computation references instead of hand-drawing a chip."
+  },
+  "funnel": {
+    "path": "image/funnel.svg",
+    "asset_type": "image",
+    "description": "Funnel icon (Bootstrap Icons, MIT licensed) -- use literally for 'many measurements funneled into mathematics' diagrams instead of hand-drawing a funnel/triangle shape."
+  },
+  "table": {
+    "path": "image/table.svg",
+    "asset_type": "image",
+    "description": "Table icon (Bootstrap Icons, MIT licensed) -- use as a small marker for tabular/reference-card content instead of hand-drawing a grid."
+  },
+  "hospital": {
+    "path": "image/hospital.svg",
+    "asset_type": "image",
+    "description": "Hospital/clinical building icon (Bootstrap Icons, MIT licensed) -- use as a stand-in for a clinical or imaging setting (e.g. MRI suite) instead of hand-drawing a building or scanner."
+  },
+  "capsule": {
+    "path": "image/capsule.svg",
+    "asset_type": "image",
+    "description": "Medicine capsule icon (Bootstrap Icons, MIT licensed) -- use for drug-dose references instead of hand-drawing a pill."
+  },
+  "clipboard_pulse": {
+    "path": "image/clipboard2-pulse.svg",
+    "asset_type": "image",
+    "description": "Clipboard-with-pulse-trace icon (Bootstrap Icons, MIT licensed) -- use for clinical measurement / vital-sign charting references (e.g. an EEG reading) instead of hand-drawing a chart on a board."
+  },
+  "hand": {
+    "path": "image/hand-index-thumb.svg",
+    "asset_type": "image",
+    "description": "Hand icon (Bootstrap Icons, MIT licensed) -- use as the base image for tremor/hand-motion references (animate/overlay motion separately) instead of hand-drawing a hand from primitives."
+  },
+  "broadcast": {
+    "path": "image/broadcast-pin.svg",
+    "asset_type": "image",
+    "description": "Broadcast/signal-pin icon (Bootstrap Icons, MIT licensed) -- use for deep brain stimulation or BCI signal-delivery references instead of hand-drawing radiating arcs."
+  },
+  "gear": {
+    "path": "image/gear.svg",
+    "asset_type": "image",
+    "description": "Gear icon (Bootstrap Icons, MIT licensed) -- use for control-theory / engineering-intervention references instead of hand-drawing a cog."
+  },
+  "arrow_repeat": {
+    "path": "image/arrow-repeat.svg",
+    "asset_type": "image",
+    "description": "Circular repeat-arrows icon (Bootstrap Icons, MIT licensed) -- use for iterative/feedback-loop references (e.g. gradient descent's repeat step) instead of hand-drawing a loop arrow."
+  },
+  "lightbulb": {
+    "path": "image/lightbulb.svg",
+    "asset_type": "image",
+    "description": "Lightbulb icon (Bootstrap Icons, MIT licensed) -- use for 'insight' / 'pattern recognized' moments instead of hand-drawing a bulb."
+  },
+  "bell": {
+    "path": "image/bell.svg",
+    "asset_type": "image",
+    "description": "Bell icon (Bootstrap Icons, MIT licensed) -- use for alarm/alert or false-positive references instead of hand-drawing a bell."
+  },
+  "check_circle": {
+    "path": "image/check-circle.svg",
+    "asset_type": "image",
+    "description": "Checkmark-in-circle icon (Bootstrap Icons, MIT licensed) -- use for a correct/true-positive outcome instead of hand-drawing a checkmark."
+  },
+  "x_circle": {
+    "path": "image/x-circle.svg",
+    "asset_type": "image",
+    "description": "X-in-circle icon (Bootstrap Icons, MIT licensed) -- use for an incorrect/missed outcome (false negative) instead of hand-drawing an X."
+  },
+  "rulers": {
+    "path": "image/rulers.svg",
+    "asset_type": "image",
+    "description": "Crossed rulers icon (Bootstrap Icons, MIT licensed) -- use for 'measurement' / 'quantification' references instead of hand-drawing a ruler."
+  },
+  "puzzle": {
+    "path": "image/puzzle.svg",
+    "asset_type": "image",
+    "description": "Puzzle-piece icon (Bootstrap Icons, MIT licensed) -- use for 'combining ideas together' references (e.g. applied math combining pillars) instead of hand-drawing puzzle shapes."
+  },
+  "fig_measurement_funnel": {
+    "path": "image/fig_measurement_funnel.png",
+    "asset_type": "image",
+    "description": "Composite PNG (matplotlib layout + Bootstrap Icons, MIT licensed) -- the 'measurements funnel into mathematics' diagram for Part 1 (why neuroscience needs mathematics). Use via ImageMobject(ASSET_PATHS['fig_measurement_funnel'])."
+  },
+  "fig_mindmap_three_pillars": {
+    "path": "image/fig_mindmap_three_pillars.png",
+    "asset_type": "image",
+    "description": "Composite PNG (matplotlib layout + Bootstrap Icons, MIT licensed) -- the mind map with only the three foundational pillars (Linear Algebra, Calculus & Dynamical Systems, Statistics & Probability) lit, the two applied nodes still muted. Use for Part 3's transition and any pillar-recap beat via ImageMobject(ASSET_PATHS['fig_mindmap_three_pillars'])."
+  },
+  "fig_mindmap_full": {
+    "path": "image/fig_mindmap_full.png",
+    "asset_type": "image",
+    "description": "Composite PNG (matplotlib layout + Bootstrap Icons, MIT licensed) -- the complete 5-node mind map, all nodes lit. Use for Part 7's expansion and the closing full reveal via ImageMobject(ASSET_PATHS['fig_mindmap_full'])."
+  }
+}

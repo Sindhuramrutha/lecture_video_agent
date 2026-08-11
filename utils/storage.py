@@ -21,5 +21,5 @@ def project_dir(topic: str) -> Path:
 
 def save_state(state: VideoState, directory: Path) -> Path:
     out_path = directory / "state.json"
-    out_path.write_text(state.model_dump_json(indent=2))
+    out_path.write_text(state.model_dump_json(indent=2), encoding="utf-8")
     return out_path

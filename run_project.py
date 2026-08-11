@@ -31,7 +31,10 @@ from utils.ffmpeg_utils import check_ffmpeg_available, duration_seconds
 
 PROJECTS_DIR = Path(__file__).resolve().parent / "projects"
 MAX_ATTEMPTS = 3
-DURATION_SHORTFALL_TOLERANCE = 2.0  # seconds
+DURATION_SHORTFALL_TOLERANCE = 3.0  # seconds
+# compose_scene() hard-trims the video to the audio's exact length -- an overshoot beyond this
+# tolerance would get silently chopped off at compose time, same reasoning as agents/visual_render.py.
+DURATION_OVERSHOOT_TOLERANCE = 3.0  # seconds
 
 
 def discover_scenes(project_dir: Path) -> list[int]:
@@ -59,7 +62,7 @@ def scene_paths(project_dir: Path, scene_id: int) -> dict:
 def run_code_stage(project_dir: Path, scene_id: int) -> str:
     """Generate code, retrying on lint failures only (no render, fast iteration)."""
     paths = scene_paths(project_dir, scene_id)
-    brief = paths["brief"].read_text()
+    brief = paths["brief"].read_text(encoding="utf-8")
     duration = duration_seconds(paths["audio"])
 
     code, feedback = None, None
@@ -74,7 +77,7 @@ def run_code_stage(project_dir: Path, scene_id: int) -> str:
         print(f"  scene {scene_id}: WARNING — lint still failing after {MAX_ATTEMPTS} attempts, saving anyway")
 
     paths["code"].parent.mkdir(parents=True, exist_ok=True)
-    paths["code"].write_text(code)
+    paths["code"].write_text(code, encoding="utf-8")
     print(f"  scene {scene_id}: code -> {paths['code']}")
     return code
 
@@ -84,7 +87,7 @@ def run_render_stage(project_dir: Path, scene_id: int) -> Path:
     paths = scene_paths(project_dir, scene_id)
     if not paths["code"].exists():
         raise SystemExit(f"scene {scene_id}: no saved code at {paths['code']} — run the `code` stage first")
-    code = paths["code"].read_text()
+    code = paths["code"].read_text(encoding="utf-8")
     video_path = manim_render.render_scene(code, paths["class_name"], paths["work_dir"])
     print(f"  scene {scene_id}: rendered -> {video_path}")
     return video_path
@@ -106,7 +109,7 @@ def run_compose_stage(project_dir: Path, scene_id: int, video_path: Path = None)
 def run_all_stages(project_dir: Path, scene_id: int) -> None:
     """Full code -> lint -> render -> duration-check loop, then compose."""
     paths = scene_paths(project_dir, scene_id)
-    brief = paths["brief"].read_text()
+    brief = paths["brief"].read_text(encoding="utf-8")
     duration = duration_seconds(paths["audio"])
 
     code, feedback, video_path = None, None, None
@@ -133,13 +136,24 @@ def run_all_stages(project_dir: Path, scene_id: int) -> None:
             )
             print(f"  scene {scene_id} attempt {attempt}: too short ({actual:.1f}s vs {duration:.1f}s), retrying")
             continue
+        overshoot = actual - duration
+        if overshoot > DURATION_OVERSHOOT_TOLERANCE:
+            feedback = (
+                f"The rendered clip is {actual:.1f}s long but the narration is only "
+                f"{duration:.1f}s — it runs {overshoot:.1f}s past the end of the audio. "
+                f"Composing would silently cut off the last {overshoot:.1f}s of animation. Trim "
+                f"run_time/self.wait() values (proportionally across beats, not just the last "
+                f"one) so the total matches {duration:.1f}s."
+            )
+            print(f"  scene {scene_id} attempt {attempt}: too long ({actual:.1f}s vs {duration:.1f}s), retrying")
+            continue
         video_path = candidate
         break
     else:
         raise SystemExit(f"scene {scene_id}: failed after {MAX_ATTEMPTS} attempts — {feedback}")
 
     paths["code"].parent.mkdir(parents=True, exist_ok=True)
-    paths["code"].write_text(code)
+    paths["code"].write_text(code, encoding="utf-8")
     run_compose_stage(project_dir, scene_id, video_path)
 
 

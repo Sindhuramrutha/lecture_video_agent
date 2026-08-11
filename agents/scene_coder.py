@@ -8,6 +8,7 @@ starting over blind.
 import re
 from typing import Optional
 
+from utils.asset_library import image_asset_paths, list_image_assets
 from utils.llm import generate_code_model, strip_code_fences
 from utils.manim_reference import MANIM_API_REFERENCE
 
@@ -24,88 +25,6 @@ def _find_matching_paren(text: str, open_idx: int) -> int:
             if depth == 0:
                 return i
     return -1
-
-
-# Real Manim frame is 14.222 x 8.0 units (config.frame_width/frame_height); a small
-# inward epsilon avoids flagging things sitting exactly at the edge due to float error.
-_FRAME_GUARD_SOURCE = '''
-def _check_frame_bounds(_scene, _mx=7.05, _my=3.95):
-    for _mob in _scene.mobjects:
-        try:
-            if getattr(_mob, "z_index", 0) < 0:
-                continue  # background layer -- deliberately full-bleed, not clipped content
-            _l, _r = _mob.get_left()[0], _mob.get_right()[0]
-            _t, _b = _mob.get_top()[1], _mob.get_bottom()[1]
-        except Exception:
-            continue  # no points anywhere in this mobject's family -- nothing to check
-        _entirely_outside = _l > _mx or _r < -_mx or _b > _my or _t < -_my
-        _exceeds = _l < -_mx or _r > _mx or _t > _my or _b < -_my
-        if _exceeds and not _entirely_outside:
-            _name = getattr(_mob, "text", None) or type(_mob).__name__
-            raise RuntimeError(
-                f"Frame bounds exceeded: {_name!r} spans x=[{_l:.2f},{_r:.2f}] "
-                f"y=[{_b:.2f},{_t:.2f}], outside the safe area "
-                f"x=[-{_mx},{_mx}] y=[-{_my},{_my}] -- part of it is being cut off "
-                f"at the edge of the frame."
-            )
-'''
-
-
-def _inject_frame_guard(code: str) -> str:
-    """Inserts a call to a bounds-checking helper after every top-level
-    self.play(...)/self.wait(...) statement, and defines that helper at module
-    level. Turns an invisible "content clipped at the frame edge" visual bug into
-    an actual render failure with a specific, actionable message -- the prompt's
-    own "stay within ±6.5/±3.5" instruction is a suggestion the model can still
-    get wrong (confirmed: it did); this is an enforced, unconditional check that
-    feeds the same automatic retry loop as every other render failure.
-    """
-    out = []
-    i = 0
-    markers = ("self.play(", "self.wait(")
-    while i < len(code):
-        # find the earliest next occurrence of either marker
-        next_idx, next_marker = -1, None
-        for marker in markers:
-            idx = code.find(marker, i)
-            if idx != -1 and (next_idx == -1 or idx < next_idx):
-                next_idx, next_marker = idx, marker
-        if next_idx == -1:
-            out.append(code[i:])
-            break
-        open_paren = next_idx + len(next_marker) - 1
-        close_paren = _find_matching_paren(code, open_paren)
-        if close_paren == -1:
-            out.append(code[i:])
-            break
-        line_start = code.rfind("\n", 0, next_idx) + 1
-        indent = code[line_start:next_idx]
-        line_end = code.find("\n", close_paren)
-        if line_end == -1:
-            # last statement in the file, no trailing newline -- without adding one
-            # here, the injected call glues onto the same line as the statement
-            # (e.g. "self.wait(...)        _check_frame_bounds(self)"), which is a
-            # SyntaxError, not a call. Confirmed: this broke a real scene.
-            segment = code[i:]
-            if not segment.endswith("\n"):
-                segment += "\n"
-            out.append(segment)
-            out.append(f"{indent}_check_frame_bounds(self)\n")
-            i = len(code)
-            break
-        line_end += 1
-        out.append(code[i:line_end])
-        out.append(f"{indent}_check_frame_bounds(self)\n")
-        i = line_end
-    body = "".join(out)
-    # Insert the helper's definition right after the last top-level import line.
-    import_lines = list(re.finditer(r"^(?:from|import)\s.+$", body, re.MULTILINE))
-    if import_lines:
-        insert_at = import_lines[-1].end()
-        body = body[:insert_at] + "\n" + _FRAME_GUARD_SOURCE + body[insert_at:]
-    else:
-        body = _FRAME_GUARD_SOURCE + body
-    return body
 
 
 def _already_clamped(expr: str) -> bool:
@@ -179,6 +98,21 @@ def _clamp_zero_durations(code: str) -> str:
     return "".join(out)
 
 
+def _inject_asset_paths(code: str) -> str:
+    """Prepends an ASSET_PATHS dict (key -> absolute file path) so generated code can
+    write `SVGMobject(ASSET_PATHS["heart"])` instead of hand-drawing recognizable
+    objects from primitives. Only ever contains real, registered, on-disk assets --
+    manim_lint.py separately validates the model didn't reference a key that isn't
+    here. A plain module-level dict has no dependency on manim being imported yet,
+    so it's safe to prepend before any import lines.
+    """
+    paths = image_asset_paths()
+    if not paths:
+        return code
+    literal = ", ".join(f"{key!r}: {path!r}" for key, path in paths.items())
+    return f"ASSET_PATHS = {{{literal}}}\n\n{code}"
+
+
 def _last_code_block(code: str, class_name: str) -> str:
     """Despite "respond with ONLY code", the model occasionally writes a full
     scene, then a second corrected attempt after an internal ``` separator —
@@ -216,6 +150,17 @@ educational animations, in the style of 3Blue1Brown: clean, readable, uncluttere
 
 Given a timed animation brief, write a single self-contained Manim Scene subclass that \
 implements it as closely as Manim allows.
+
+Show it, don't just say it — favor illustrations, diagrams, and pictures over walls of text or \
+narrated-only content whenever a beat describes something that can be drawn: an object, a \
+process, a structure, a relationship, a comparison. A viewer understands a labeled diagram of a \
+thing faster than a paragraph describing it, so when the brief names something concrete, build \
+it — from the asset library if it's a recognizable real-world object (see the assets list \
+below), or from Manim's own primitives as a proper diagram/illustration (shapes, arrows, \
+groupings, spatial layout) if it isn't. Reserve `Text` for what's genuinely textual — labels, \
+key terms, numbers, equations, code — not as the default way to convey an idea that a picture or \
+diagram would show more clearly. A scene that is mostly sentences of `Text` fading in and out, \
+one after another, has usually skipped building the actual visual the brief was asking for.
 
 Manim is fully capable of literal physical simulations, not just graphs and equations — build \
 what the brief actually describes. A spring is a coil (e.g. a zigzag/helical Line or a custom \
@@ -268,6 +213,33 @@ overlapping text. Track every label you create in a variable and explicitly `Fad
 or as the next one appears — never leave a label on screen just because nothing told you to \
 remove it. Before writing a beat's code, mentally list everything still visible from the \
 previous beat and confirm each item is either still relevant or explicitly faded.
+- Entrance/exit variety: don't default to plain `FadeIn`/`FadeOut` for every single element — \
+that reads as flat and repetitive across a whole video. Vary it deliberately based on what the \
+content is: `Write` for text or diagrams that should look drawn/typed stroke-by-stroke, \
+`AddTextLetterByLetter` for narration-synced text appearing word-by-word, `GrowFromCenter` or \
+`GrowFromPoint` for something emerging from a source, `SpinInFromNothing` or a combined \
+`.animate.rotate(...)` + fade for something that should twirl or spin into place, `Transform`/ \
+`ReplacementTransform` when one thing is morphing into another rather than being replaced by it. \
+Match the technique to the moment — a key term being defined deserves a more deliberate entrance \
+than a minor supporting label — but keep the same element's own repeated appearances (e.g. this \
+scene's title, if it reappears) consistent with each other, not different every time. An element \
+can also enter/exit by physically traveling across the frame edge rather than fading in place — \
+`mob.move_to(LEFT*9)` (or `RIGHT`/`UP`/`DOWN`, whichever edge fits) then `self.play(mob.animate.move_to(<final position>))` \
+slides it in from off-screen; the reverse slides it out. Use this when the content itself \
+implies motion from somewhere (the next item "coming in", the previous one "moving on") rather \
+than as a default.
+- Camera work: when a beat calls for really zooming in on a detail, panning across a wide \
+structure, or focusing attention on one part of an already-built diagram, use real camera \
+movement rather than fighting it with mobject scaling — subclass `MovingCameraScene` for this \
+scene's class declaration (only when this is actually needed; keep plain `Scene` otherwise) and \
+animate `self.camera.frame`: `self.play(self.camera.frame.animate.scale(0.5).move_to(target))` \
+zooms in and centers on `target`; `.animate.scale(2)` zooms back out; \
+`.animate.move_to(other_target)` alone pans without changing zoom. To focus attention on one \
+part of a diagram without changing zoom, dim everything else instead — \
+`self.play(rest_of_group.animate.set_opacity(0.25), focal_item.animate.set_opacity(1))`. Don't \
+reach for camera movement by default — a scene that's already simple and well-framed doesn't \
+need a zoom just to add motion; use it when it genuinely serves what's being explained (revealing \
+detail, connecting a part to the whole).
 - Off-screen: the visible frame is about 14 units wide and 8 units tall, centered on the \
 origin — stay within roughly ±6.5 horizontally and ±3.5 vertically, and scale down anything \
 that would exceed it. Before placing a `Text`, `Code` block, or `VGroup`, consider its actual \
@@ -333,28 +305,76 @@ animated in individually to make its point.
 
 Visual consistency across scenes — every scene in this course is generated independently, so \
 these choices must be made the same way every time rather than left to each generation's \
-discretion:
+discretion. The audience spans children through adults, so vivid, filled color and a clear size \
+hierarchy read better for everyone than thin white outlines at one uniform size:
+- Background: every scene is dark. The very first line of `construct()` must be \
+`self.camera.background_color = "#0F1116"` — this works on both plain `Scene` and \
+`MovingCameraScene`. Never a light/white background.
+- Fill, don't just outline: any shape representing a real object — a heart, a brain, a person, \
+an icon, a bar in a chart, anything built from Manim primitives to depict a concrete thing — \
+must be filled with color (`.set_fill(COLOR, opacity=1)`, or `fill_opacity=1` at construction), \
+not left as a bare stroked outline. An unfilled shape reads as a thin wireframe, not a solid \
+recognizable object. Reserve stroke-only, unfilled shapes for things that are genuinely meant to \
+be a boundary, guide line, or highlight box, not the object itself.
 - Font: use Manim's default font (don't set a custom `font=` on `Text`) so every scene renders \
 text identically.
-- Color palette: use only `WHITE` for primary text/labels, `YELLOW` for highlights/emphasis, \
-`GREY`/`GREY_B` for secondary/de-emphasized text, `RED`/`GREEN`/`BLUE` for data or comparison \
-categories, and `monokai`-scheme colors (handled automatically by `Code`'s \
-`formatter_style="monokai"`) for code. Don't introduce other named colors or hex values — \
-sticking to this small palette is what makes independently-generated scenes look like one \
-consistent course instead of a visibly different style each time.
+- Font size hierarchy: don't render every piece of text at the same default size. The scene's \
+key term, headline, or single most important number deserves a noticeably larger `font_size` \
+(roughly 1.5-2x a normal label); secondary or supporting text stays at or below the default \
+size. Size is itself a signal of importance to the viewer — use it deliberately, every scene, \
+not just occasionally.
+- Color palette: `WHITE` for primary text/labels, `YELLOW`/`GOLD` for highlighted or emphasized \
+text (don't leave every line of text the same color when a specific word or value is the point \
+of the beat), `GREY`/`GREY_B` for secondary/de-emphasized text. For filled shapes, objects, and \
+data/comparison categories, draw from this vivid set: `BLUE`, `TEAL`, `GREEN`, `ORANGE`, \
+`PURPLE`, `PINK`, `RED`, `MAROON` — assign colors deliberately (the same recurring object or \
+category keeps the same color within a scene; different categories get visually distinct \
+colors), never randomly and never all the same color. `monokai`-scheme colors (handled \
+automatically by `Code`'s `formatter_style="monokai"`) for code. Don't introduce colors outside \
+this set, or raw hex values other than the one background color above — sticking to this \
+palette is what makes independently-generated scenes look like one consistent, vivid course \
+instead of a visibly different style each time.
+- Keep something alive: a scene shouldn't sit perfectly frozen between discrete beat animations. \
+While a mobject is the current focus of what the narration is saying, give it a small continuous \
+motion for that duration — a slow `.animate.scale` pulse, a gentle looping rotation, `Wiggle`, \
+periodic `Indicate` — rather than leaving it completely static while it's actively being talked \
+about. Reserve true stillness for elements that have genuinely finished being the focus.
 
 Rules:
-- Import only from `manim` (`from manim import *`) plus the Python standard library and numpy.
+- Import only from `manim` (`from manim import *`) plus the Python standard library and numpy — \
+except for the one narrow case below, where `matplotlib` is also allowed.
 - The class must be named exactly `{class_name}`.
 - Total animation runtime must be within 1 second of the target duration. Use self.wait() to \
 fill gaps.
-- No file I/O, no network access, no external assets — concretely, this means never use \
-`ImageMobject` or `SVGMobject`: both load a file from disk, and no images or SVGs are supplied \
-to this pipeline, so both always crash. Build every visual from Manim's own vector primitives \
+- A small library of real, pre-made illustrations is available for recognizable objects that \
+are genuinely hard to draw well from primitives (see the list below). If the brief needs one of \
+these, use it via the `ASSET_PATHS` dict that's already defined for you — e.g. \
+`SVGMobject(ASSET_PATHS["heart"])` — instead of hand-drawing it. Never call `ImageMobject` or \
+`SVGMobject` with anything other than an `ASSET_PATHS[...]` lookup for a key from the list below \
+— any other path is not a real file and will crash, since no other images/SVGs are supplied to \
+this pipeline. For anything not in the library, build it from Manim's own vector primitives \
 instead — `Rectangle`, `Square`, `Circle`, `Ellipse`, `Line`, `Dot`, `Polygon`, `Arc`, `VGroup` \
 — composed together. A striped image is a `VGroup` of alternating-color thin `Rectangle`s, not \
 a hand-built pixel array; a mouse/animal is a `Circle`/`Ellipse` body with smaller shapes for \
 ears/features, not an SVG; an icon is built from primitives, not loaded.
+
+Available illustration assets (key: description) — empty means none are registered yet, build \
+everything from primitives:
+{available_assets}
+- Embedding a precise data plot inside a Manim scene: if a beat needs an exact, precisely-axed \
+plot (a real waveform, a statistical chart) alongside Manim's own animation in the *same* scene, \
+generate that plot with matplotlib and load it as an image — matplotlib produces cleaner, more \
+precise plots than hand-built Manim shapes. This is the one allowed exception to "no file I/O," \
+and it must follow this exact pattern, nothing else: \
+(1) at the very top of the file, before `from manim import *`, add `import matplotlib`, then \
+`matplotlib.use("Agg")`, then build the figure and call \
+`plt.savefig("<name>.png", dpi=200, transparent=True, bbox_inches="tight")` then `plt.close()` — \
+pick a short, unique `<name>` per plot if a scene needs more than one; \
+(2) inside `construct()`, load that exact same filename with `ImageMobject("<name>.png")` and \
+animate/position it like any other mobject. Never call `ImageMobject`/`SVGMobject` with a \
+filename that wasn't just produced by a `savefig()` call earlier in this same file, and never \
+use this for anything Manim's own primitives already handle well (a styled shape, an icon, a \
+constructed diagram) — it's for genuine precise-data plots only.
 - If a specific figure the brief calls for genuinely cannot be built well from Manim's \
 primitives (a realistic anatomical drawing, a photorealistic object), do not force a bad or \
 misleading substitute — omit that figure and cover the same point with what the scene already \
@@ -382,10 +402,11 @@ either `np.array([x, y, z])` or a combination of directional vectors like `RIGHT
 never separate x, y, z arguments. `mob.move_to(x, y, z)` raises `TypeError: 'float' object is \
 not subscriptable`; for a grid or computed layout, build the point explicitly first: \
 `mob.move_to(np.array([x, y, 0]))`.
-- Never reference `self.camera.frame` — that attribute only exists on `MovingCameraScene`, and \
-every scene here subclasses plain `Scene`, so it always crashes with an `AttributeError`. For a \
-"zoom in/out" or "pan" effect, animate the mobjects themselves instead — `group.animate.scale(...)`, \
-`.move_to(...)`, or `.shift(...)` on the `VGroup`/mobject in question — never the camera.
+- `self.camera.frame` only exists on `MovingCameraScene`, never on plain `Scene` — referencing \
+it on plain `Scene` crashes with `AttributeError`. When a beat genuinely calls for real camera \
+movement (see the camera work rule below), subclass `MovingCameraScene` instead of `Scene` for \
+this scene's class declaration. When it doesn't, keep the default `Scene` base and animate the \
+mobjects themselves instead — `group.animate.scale(...)`, `.move_to(...)`, `.shift(...)`.
 - Never use `MathTex` or `Tex` — both shell out to a LaTeX installation that isn't present in \
 this environment, so both always crash. For equations and math notation, use plain `Text` \
 instead, built with unicode directly (e.g. "ẋ = μx − ωy", "σ²", "x₁", "≈", "√") — Manim's \
@@ -408,9 +429,24 @@ def generate_code(
     previous_code: Optional[str] = None,
     feedback: Optional[str] = None,
     previous_scene_code: Optional[str] = None,
+    chapter_context: Optional[str] = None,
 ) -> str:
-    system = SYSTEM_PROMPT.format(class_name=class_name, manim_api_reference=MANIM_API_REFERENCE)
+    asset_descriptions = list_image_assets()
+    available_assets = (
+        "\n".join(f'- "{key}": {entry.description}' for key, entry in asset_descriptions.items())
+        or "(none registered)"
+    )
+    system = SYSTEM_PROMPT.format(
+        class_name=class_name, manim_api_reference=MANIM_API_REFERENCE, available_assets=available_assets
+    )
     user_prompt = f"Animation brief:\n{render_prompt}\n\nTarget duration: {duration:.2f} seconds"
+    if chapter_context:
+        user_prompt += (
+            f"\n\nFor situational awareness, here is the whole chapter this scene belongs to "
+            f"(subtopic + narration for every scene) — use it to keep this scene's content, tone, "
+            f"and visual choices consistent with where it sits in the larger narrative, not just "
+            f"the isolated brief above:\n{chapter_context}"
+        )
     if previous_scene_code:
         user_prompt += (
             f"\n\nThe previous scene's code (for continuity — reuse its exact values where the "
@@ -421,13 +457,16 @@ def generate_code(
             f"\n\nYour previous attempt had this problem:\n{feedback}\n\n"
             f"Previous code:\n{previous_code}\n\nFix it."
         )
-    # 16384, not 8192 -- confirmed a real scene (589+ lines, a large repeated-grid
-    # visualization) still hadn't finished at 8192 and got cut off mid-expression,
-    # producing a SyntaxError. DeepSeek has plenty of headroom for this; the local
-    # Qwen server's 16384-token *shared* context budget doesn't apply here since
-    # this is a completion-only (not prompt+completion) ceiling on a separate endpoint.
-    code = strip_code_fences(generate_code_model(system=system, prompt=user_prompt, max_tokens=16384))
+    # Deliberately high: both 8192 and 16384 have been observed cutting off a real
+    # scene mid-expression (producing a SyntaxError caught by lint, burning a retry
+    # on truncation rather than an actual code problem). This is a completion-only
+    # ceiling on a paid endpoint, not a shared prompt+completion budget, so there's
+    # no cost reason to keep it tight -- set it high enough that truncation is
+    # never the reason a scene fails. If the configured model's API rejects this as
+    # exceeding its own real ceiling, that error will name the actual limit; lower
+    # this to match.
+    code = strip_code_fences(generate_code_model(system=system, prompt=user_prompt, max_tokens=65536))
     code = _last_code_block(code, class_name)
     code = _last_class_definition(code, class_name)
     code = _clamp_zero_durations(code)
-    return _inject_frame_guard(code)
+    return _inject_asset_paths(code)

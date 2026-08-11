@@ -20,7 +20,7 @@ class Scene(BaseModel):
     subtopic: str
     narration: str
     animation_description: str
-    scene_type: Literal["manim", "image_only", "audio_only"]
+    scene_type: Literal["manim", "matplotlib", "image_only", "audio_only"]
 
     # --- produced by the Audio Generator stage ---
     audio_path: Optional[str] = None

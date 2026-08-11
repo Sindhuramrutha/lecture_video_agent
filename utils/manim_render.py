@@ -8,9 +8,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+from utils.render_errors import RenderError
 
-class RenderError(Exception):
-    pass
+__all__ = ["RenderError", "render_scene"]
 
 
 def _clean_terminal_output(text: str) -> str:
@@ -38,7 +38,7 @@ def render_scene(code: str, class_name: str, work_dir: Path) -> Path:
     work_dir = work_dir.resolve()
     work_dir.mkdir(parents=True, exist_ok=True)
     code_path = work_dir / f"{class_name}.py"
-    code_path.write_text(code)
+    code_path.write_text(code, encoding="utf-8")
 
     media_dir = work_dir / "media"
     try:

@@ -20,7 +20,7 @@ def finalize_node(state: VideoState) -> dict:
 
     srt_text = build_srt(state.scenes)
     subtitles_path = directory / "subtitles.srt"
-    subtitles_path.write_text(srt_text)
+    subtitles_path.write_text(srt_text, encoding="utf-8")
 
     clip_paths = [scene.composed_path for scene in state.scenes if scene.composed_path]
     final_path = stitch_clips(clip_paths, directory / "final.mp4")

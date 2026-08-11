@@ -30,6 +30,6 @@ def load_references(paths: list[Path | str]) -> list[str]:
         elif path.suffix.lower() == ".docx":
             text = "\n".join(p.text for p in Document(str(path)).paragraphs)
         else:
-            text = path.read_text()
+            text = path.read_text(encoding="utf-8")
         texts.append(text)
     return texts

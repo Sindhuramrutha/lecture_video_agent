@@ -9,7 +9,7 @@ def stitch_clips(clip_paths: list[Path], out_path: Path) -> Path:
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     list_path = out_path.parent / "concat_list.txt"
-    list_path.write_text("\n".join(f"file '{Path(p).resolve()}'" for p in clip_paths))
+    list_path.write_text("\n".join(f"file '{Path(p).resolve()}'" for p in clip_paths), encoding="utf-8")
 
     subprocess.run(
         [
