@@ -1,9 +1,9 @@
 # NeuroGati Video Engine
 
 Internal video generation automation pipeline for Neurovidya by Neurogati.
-Turns written content (a topic, or a document you author) into a narrated,
-animated video: script → narration audio → Manim/Matplotlib animation →
-composed scene clips → a stitched final video with subtitles.
+Turns written content you author into a narrated, animated video: script →
+narration audio → Manim/Matplotlib animation → composed scene clips → a
+stitched final video with subtitles.
 
 ## 1. Prerequisites
 
@@ -101,7 +101,7 @@ Edit `.env` and fill in:
 | Variable | Purpose |
 |---|---|
 | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | Script/prompt-generation LLM. Defaults to DeepSeek; point at a self-hosted vLLM server instead by setting `LLM_BASE_URL=http://localhost:8800/v1`, `LLM_API_KEY=not-needed`, `LLM_MODEL=<your served model>` |
-| `CODE_LLM_BASE_URL`, `CODE_LLM_API_KEY`, `CODE_LLM_MODEL` | Optional separate model for Manim code generation; falls back to the `LLM_*` values above if unset |
+| `CODE_LLM_BASE_URL`, `CODE_LLM_API_KEY`, `CODE_LLM_MODEL` | Code-generation model, used by both the Manim and Matplotlib coders; falls back to the `LLM_*` values above if unset. Any OpenAI-compatible endpoint works here, e.g. Claude via OpenRouter: `CODE_LLM_BASE_URL=https://openrouter.ai/api/v1`, `CODE_LLM_MODEL=anthropic/claude-sonnet-5` |
 | `TTS_VOICE` | Kokoro TTS voice (default `af_heart`) |
 
 Never commit `.env` — it's already git-ignored.
@@ -112,15 +112,15 @@ Never commit `.env` — it's already git-ignored.
 locally by you or by the tooling, never pulled from git, since it holds
 generated media that's specific to each run.
 
-Two ways to start:
-
-### Option A — from your own written content (recommended, staged CLI)
-
 1. Write your content by hand as textbook-style prose (sections, worked
    examples, explanations — not bullet notes). See
    [CONTENT_GUIDELINES.md](CONTENT_GUIDELINES.md) for the full authoring
    rules — this is the one input you write; everything downstream is
-   generated from it.
+   generated from it. If you state a target duration in the file (e.g.
+   `Target duration: 9 minutes`), treat it as a target for how much you
+   write, not a lever the pipeline can pull — it narrates your content
+   faithfully and will not pad or invent material to reach a duration your
+   source text doesn't actually contain.
 2. Create the input folder and drop your file in:
 
    ```bash
@@ -130,18 +130,9 @@ Two ways to start:
 
    Supported formats: `.txt`, `.md`, `.pdf`, `.docx`.
 
-### Option B — from a bare topic (notebook, interactive)
-
-Open `main.ipynb`, edit the `topic` / `audience` / `duration_minutes` cell,
-and run cells one stage at a time — it pauses after each stage
-(script → audio → visual render → compose → finalize) so you can inspect and
-approve before continuing. This drives an LLM to invent the content itself;
-prefer Option A if you want to control exactly what's said.
-
 ## 6. Render the video
 
-Using the staged CLI (Option A projects), from the `video_engine` directory
-with the conda env active:
+From the `video_engine` directory with the conda env active:
 
 ```bash
 # One-halt workflow (recommended): script -> audio -> prompts -> silent render,
@@ -158,7 +149,22 @@ python run_chapter.py --project my-project --input ch1.docx \
 python run_chapter.py --project my-project --input ch1.docx --stage compose
 ```
 
-Other useful invocations:
+### `run_chapter.py` flag reference
+
+| Flag | Purpose |
+|---|---|
+| `--project` | Required. Folder under `projects/`, e.g. `my-project`. |
+| `--input` | Required. Filename under `projects/<project>/input_files/`. |
+| `--topic` | Defaults to the input filename. |
+| `--audience` | Default: `"students new to the topic"`. |
+| `--duration-minutes` | Default: `15`. Only matters if your content doesn't state its own target — see section 5; the pipeline never pads to hit either number. |
+| `--stage` | One of `all`, `prepare`, `script`, `audio`, `prompts`, `render`, `compose` — see recipes below. |
+| `--scenes` | Comma-separated scene ids, e.g. `1,3`. Scopes `render`/`compose` to a subset; required (as a single id) for `--revise`, `--explain`, `--set-scene-type`. |
+| `--revise "<feedback>"` | Regenerate one scene's code from your plain-English feedback plus its existing code, then re-render it. Requires `--scenes <single id>`. |
+| `--explain` | Ask the code-generation LLM to explain a failed scene's saved error log in plain English, plus suggest `--revise` feedback. Requires `--scenes <single id>`. No separate account needed — reuses `CODE_LLM_*`. |
+| `--set-scene-type {manim,matplotlib,image_only,audio_only}` | Override one scene's type — e.g. the classifier picked `image_only` for a scene with real narration, and you want actual animation instead. Requires `--scenes <single id>`. Clears that scene's stale render state (code/video/status) so it starts fresh under the new type; doesn't render by itself — follow with `--stage render --scenes <id>`. |
+
+### Command recipes
 
 ```bash
 # Run everything straight through, no review pause
@@ -174,12 +180,17 @@ python run_chapter.py --project my-project --input ch1.docx --stage compose [--s
 # Ask the LLM to explain a failed scene's error in plain English, with a
 # suggested --revise fix
 python run_chapter.py --project my-project --input ch1.docx --scenes 2 --explain
-```
 
-Flags: `--project` (folder under `projects/`), `--input` (filename under
-`projects/<project>/input_files/`), `--topic` (defaults to the input
-filename), `--audience` (default: "students new to the topic"),
-`--duration-minutes` (default 15).
+# The classifier picked the wrong scene type for a scene (e.g. image_only for
+# a scene with 30s of narration, which just sits on a static title card) --
+# override it, then render it for real:
+python run_chapter.py --project my-project --input ch1.docx --scenes 2 --set-scene-type manim
+python run_chapter.py --project my-project --input ch1.docx --scenes 2 --stage render
+
+# Re-render every scene of a given type after a prompt/model change, without
+# touching script/audio/prompts (find the ids first, e.g. via state.json)
+python run_chapter.py --project my-project --input ch1.docx --scenes 1,4,7 --stage render
+```
 
 ### Lower-level: `run_project.py`
 
@@ -194,6 +205,14 @@ python run_project.py --project python-course --stage render --scenes 1
 python run_project.py --project python-course --stage compose
 ```
 
+| Flag | Purpose |
+|---|---|
+| `--project` | Required. Folder under `projects/`. |
+| `--scenes` | Comma-separated scene ids; default is every scene with a `prompts/scene_NN_prompt.txt` file. |
+| `--stage` | One of `all`, `code` (lint-only, fast iteration, no render), `render`, `compose`. |
+
+`run_project.py` only ever generates Manim scenes (no scene-type classifier, no matplotlib routing) — it's the narrower sibling of `run_chapter.py` for when you already have briefs and audio in place and just want to iterate on code.
+
 ## 7. Output layout
 
 Everything below is generated under `projects/<project>/`, per chapter slug
@@ -203,27 +222,43 @@ Everything below is generated under `projects/<project>/`, per chapter slug
 projects/<project>/
   input_files/<input>                -- your input (you provide this)
   <chapter-slug>/
-    state.json                       -- scene state, resumed across invocations
-    scene-wise-script/               -- narration + animation description per scene
-    prompts/                         -- timed animation briefs
-    audio/                           -- narration audio (Kokoro + word alignment)
-    manim_code/                      -- generated Manim source
-    manim/                           -- raw Manim render working dirs
-    rendered_video/                  -- scene_NN_silent.mp4 (review) and
-                                         scene_NN_with_audio.mp4 (after compose)
+    state.json           -- scene state, resumed across invocations
+    scene-wise-script/    -- narration + animation description per scene
+    prompts/              -- timed animation briefs
+    audio/                -- narration audio (Kokoro + word alignment)
+    transcripts/          -- word-level timing per scene
+    manim/SceneNN/         -- generated source + render working dir, per manim
+                              scene (scene-type classifier decides manim vs.
+                              matplotlib per scene, see section 5)
+    matplotlib/SceneNN/    -- same, for matplotlib scenes
+    rendered_video/        -- scene_NN_silent.mp4 (review) and
+                              scene_NN_with_audio.mp4 (after compose)
   videos/<chapter-slug>.mp4          -- final stitched video
   videos/<chapter-slug>.srt          -- subtitles
 ```
 
+A shared asset library also lives at the repo root, not per-project — see
+[utils/asset_library.py](utils/asset_library.py). `assets/library.json` is
+the manifest; `assets/image/` holds the actual files. Registered assets are
+available to every project's Manim scenes via the `ASSET_PATHS` dict (see
+`agents/scene_coder.py`'s system prompt for exactly how).
+
 ## Repo layout (tracked in git)
 
 ```
-agents/      -- pipeline stages (script, audio, prompts, code, render, compose)
-utils/       -- shared helpers (ffmpeg, Manim rendering/linting, TTS, alignment, storage)
+agents/      -- pipeline stages: scene_script (classifier), audio_generator,
+                prompt_maker, scene_coder (Manim), matplotlib_coder, visual_render
+                (dispatches each scene to its renderer), compose, finalize
+utils/       -- shared helpers: ffmpeg, Manim/Matplotlib rendering + linting,
+                manim_reference.py (live-introspected API reference), asset_library,
+                TTS, word alignment, storage
 config/      -- environment/settings loading
 state.py     -- VideoState / Scene models shared across the pipeline
-workflow.py  -- LangGraph graph wiring for the notebook-driven workflow
-main.ipynb   -- interactive, topic-driven orchestrator (Option B above)
-run_chapter.py, run_project.py  -- staged CLI drivers (Option A above)
+workflow.py  -- LangGraph graph wiring for the notebook-driven workflow (main.ipynb)
+main.ipynb   -- interactive, topic-driven orchestrator; drives an LLM to invent
+                content from a bare topic instead of narrating a file you wrote --
+                see CONTENT_GUIDELINES.md if you want control over exactly what's said
+run_chapter.py, run_project.py  -- staged CLI drivers, see sections 5-6 above
+assets/      -- shared asset library (manifest + registered image files)
 projects/    -- empty in git (.gitkeep only); your generated projects live here locally
 ```
