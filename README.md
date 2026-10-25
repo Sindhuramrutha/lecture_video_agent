@@ -1,7 +1,6 @@
-# NeuroGati Video Engine
+# Lecture Video Agent
 
-Internal video generation automation pipeline for Neurovidya by Neurogati.
-Turns written content you author into a narrated, animated video: script →
+An agentic LLM pipeline that turns written content you author into a narrated, animated video: script →
 narration audio → Manim/Matplotlib animation → composed scene clips → a
 stitched final video with subtitles.
 
@@ -34,7 +33,7 @@ Restart your shell (or `source ~/.bashrc`) so the `conda` command is on `PATH`.
 ## 3. Create the environment
 
 ```bash
-cd video_engine
+cd lecture-video-agent
 conda create -n video_engine python=3.12 -y
 conda activate video_engine
 
@@ -132,7 +131,7 @@ generated media that's specific to each run.
 
 ## 6. Render the video
 
-From the `video_engine` directory with the conda env active:
+From the `lecture-video-agent` directory with the conda env active:
 
 ```bash
 # One-halt workflow (recommended): script -> audio -> prompts -> silent render,

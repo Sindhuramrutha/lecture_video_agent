@@ -6,7 +6,7 @@ since this is a convenience, not a critical path.
 import subprocess
 
 
-def notify(message: str, title: str = "NeuroGati Video Engine") -> None:
+def notify(message: str, title: str = "Lecture Video Agent") -> None:
     safe_message = message.replace('"', "'")
     safe_title = title.replace('"', "'")
     try:
